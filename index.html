@@ -14,24 +14,19 @@
 
   <style>
     :root{
-      --bg1:#0f172a;
-      --bg2:#111827;
       --card:#ffffff;
       --ink:#0f172a;
       --muted:#475569;
       --line:#dbe4f0;
       --accent:#2563eb;
       --accent2:#7c3aed;
-      --soft:#eff6ff;
       --ok:#059669;
-      --warn:#d97706;
       --danger:#dc2626;
       --shadow:0 12px 40px rgba(15,23,42,.12);
       --radius:22px;
     }
 
     *{box-sizing:border-box}
-
     html{scroll-behavior:smooth}
 
     body{
@@ -84,25 +79,10 @@
       box-shadow:0 8px 20px rgba(37,99,235,.25);
     }
 
-    .btn-light{
-      background:#fff;
-      color:var(--ink);
-    }
-
-    .btn-soft{
-      background:#e2e8f0;
-      color:#0f172a;
-    }
-
-    .btn-danger{
-      background:#fee2e2;
-      color:#991b1b;
-    }
-
-    .btn-ok{
-      background:#dcfce7;
-      color:#166534;
-    }
+    .btn-light{background:#fff;color:var(--ink)}
+    .btn-soft{background:#e2e8f0;color:#0f172a}
+    .btn-danger{background:#fee2e2;color:#991b1b}
+    .btn-ok{background:#dcfce7;color:#166534}
 
     .wrap{
       max-width:1200px;
@@ -118,28 +98,6 @@
       box-shadow:var(--shadow);
       overflow:hidden;
       position:relative;
-    }
-
-    .hero::before,
-    .hero::after{
-      content:"";
-      position:absolute;
-      border-radius:50%;
-      background:rgba(255,255,255,.10);
-    }
-
-    .hero::before{
-      width:220px;
-      height:220px;
-      right:-60px;
-      top:-60px;
-    }
-
-    .hero::after{
-      width:160px;
-      height:160px;
-      left:-40px;
-      bottom:-60px;
     }
 
     .hero small{
@@ -211,11 +169,6 @@
       background:#f8fafc;
       border:1px solid #e2e8f0;
       font-weight:700;
-    }
-
-    .toc a:hover{
-      background:#eff6ff;
-      border-color:#bfdbfe;
     }
 
     .content{
@@ -292,8 +245,6 @@
       line-height:1.8;
     }
 
-    .item-list li{margin-bottom:4px}
-
     .two-col{
       display:grid;
       grid-template-columns:1fr;
@@ -301,9 +252,7 @@
     }
 
     @media (min-width:820px){
-      .two-col{
-        grid-template-columns:1fr 1fr;
-      }
+      .two-col{grid-template-columns:1fr 1fr}
     }
 
     .note-box{
@@ -346,9 +295,7 @@
     }
 
     @media (min-width:700px){
-      .upload-panel{
-        grid-template-columns:1fr 1fr;
-      }
+      .upload-panel{grid-template-columns:1fr 1fr}
     }
 
     .upload-box{
@@ -410,6 +357,7 @@
       font-weight:700;
       cursor:pointer;
       width:100%;
+      margin-top:6px;
     }
 
     .file-list{
@@ -425,15 +373,39 @@
       border-radius:12px;
       padding:10px;
       display:flex;
-      justify-content:space-between;
+      flex-direction:column;
       gap:8px;
-      align-items:center;
     }
 
-    .file-chip span{
+    .file-chip-title{
       font-size:14px;
       color:#334155;
       word-break:break-word;
+      font-weight:700;
+    }
+
+    .file-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .file-action-btn{
+      border:none;
+      border-radius:10px;
+      padding:8px 12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .file-open{
+      background:#dbeafe;
+      color:#1d4ed8;
+    }
+
+    .file-remove{
+      background:#fee2e2;
+      color:#991b1b;
     }
 
     .footer-space{height:30px}
@@ -453,8 +425,6 @@
       cursor:pointer;
     }
 
-    .fab:hover{transform:translateY(-1px)}
-
     .status{
       position:fixed;
       left:50%;
@@ -473,8 +443,6 @@
     }
 
     .status.show{opacity:1}
-
-    .print-only{display:none}
 
     @media print{
       .topbar, .sidebar, .fab, .status, .upload-panel, .btn{
@@ -502,8 +470,6 @@
       .note-box textarea{
         border:1px solid #bbb;
       }
-
-      .print-only{display:block}
     }
   </style>
 </head>
@@ -897,8 +863,9 @@
   <script>
     const STORAGE_PREFIX = "uem_esqueleto_";
     const DB_NAME = "uem_esqueleto_db";
-    const DB_VERSION = 1;
+    const DB_VERSION = 2;
     const IMAGE_STORE = "images";
+    const FILE_STORE = "files";
 
     let db;
 
@@ -920,8 +887,13 @@
 
         request.onupgradeneeded = function(event){
           const database = event.target.result;
+
           if(!database.objectStoreNames.contains(IMAGE_STORE)){
             database.createObjectStore(IMAGE_STORE, { keyPath: "id" });
+          }
+
+          if(!database.objectStoreNames.contains(FILE_STORE)){
+            database.createObjectStore(FILE_STORE, { keyPath: "id" });
           }
         };
 
@@ -947,18 +919,6 @@
       });
     }
 
-    function getFiles(section){
-      try{
-        return JSON.parse(localStorage.getItem(STORAGE_PREFIX + "files_" + section) || "[]");
-      }catch{
-        return [];
-      }
-    }
-
-    function setFiles(section, arr){
-      localStorage.setItem(STORAGE_PREFIX + "files_" + section, JSON.stringify(arr));
-    }
-
     function getImageMeta(section){
       try{
         return JSON.parse(localStorage.getItem(STORAGE_PREFIX + "image_meta_" + section) || "[]");
@@ -971,12 +931,23 @@
       localStorage.setItem(STORAGE_PREFIX + "image_meta_" + section, JSON.stringify(arr));
     }
 
+    function getFileMeta(section){
+      try{
+        return JSON.parse(localStorage.getItem(STORAGE_PREFIX + "file_meta_" + section) || "[]");
+      }catch{
+        return [];
+      }
+    }
+
+    function setFileMeta(section, arr){
+      localStorage.setItem(STORAGE_PREFIX + "file_meta_" + section, JSON.stringify(arr));
+    }
+
     function saveImageRecord(record){
       return new Promise((resolve, reject) => {
         const tx = db.transaction(IMAGE_STORE, "readwrite");
         const store = tx.objectStore(IMAGE_STORE);
         const req = store.put(record);
-
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
       });
@@ -987,7 +958,6 @@
         const tx = db.transaction(IMAGE_STORE, "readonly");
         const store = tx.objectStore(IMAGE_STORE);
         const req = store.get(id);
-
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
       });
@@ -998,18 +968,46 @@
         const tx = db.transaction(IMAGE_STORE, "readwrite");
         const store = tx.objectStore(IMAGE_STORE);
         const req = store.delete(id);
-
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
       });
     }
 
-    async function getAllImageRecords(){
+    function saveFileRecord(record){
       return new Promise((resolve, reject) => {
-        const tx = db.transaction(IMAGE_STORE, "readonly");
-        const store = tx.objectStore(IMAGE_STORE);
-        const req = store.getAll();
+        const tx = db.transaction(FILE_STORE, "readwrite");
+        const store = tx.objectStore(FILE_STORE);
+        const req = store.put(record);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
 
+    function getFileRecord(id){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(FILE_STORE, "readonly");
+        const store = tx.objectStore(FILE_STORE);
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function deleteFileRecord(id){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(FILE_STORE, "readwrite");
+        const store = tx.objectStore(FILE_STORE);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getAllRecords(storeName){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const store = tx.objectStore(storeName);
+        const req = store.getAll();
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
       });
@@ -1062,10 +1060,28 @@
       }
     }
 
-    function renderFiles(section){
+    async function openStoredFile(id){
+      const rec = await getFileRecord(id);
+      if(!rec || !rec.blob){
+        showStatus("Arquivo não encontrado");
+        return;
+      }
+
+      const url = URL.createObjectURL(rec.blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = rec.name || "arquivo";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    async function renderFiles(section){
       const container = document.getElementById("files-" + section);
       if(!container) return;
-      const files = getFiles(section);
+
+      const files = getFileMeta(section);
       container.innerHTML = "";
 
       if(files.length === 0){
@@ -1077,23 +1093,38 @@
         const row = document.createElement("div");
         row.className = "file-chip";
         row.innerHTML = `
-          <span>${file.name}</span>
-          <button class="mini-btn" type="button" style="width:auto; padding:8px 12px;">Remover</button>
+          <div class="file-chip-title">${file.name}</div>
+          <div class="file-actions">
+            <button class="file-action-btn file-open" type="button">Abrir / baixar</button>
+            <button class="file-action-btn file-remove" type="button">Remover</button>
+          </div>
         `;
-        row.querySelector("button").addEventListener("click", () => {
-          const list = getFiles(section);
-          list.splice(index, 1);
-          setFiles(section, list);
-          renderFiles(section);
-          showStatus("Arquivo removido");
+
+        const buttons = row.querySelectorAll("button");
+
+        buttons[0].addEventListener("click", async () => {
+          await openStoredFile(file.id);
         });
+
+        buttons[1].addEventListener("click", async () => {
+          const list = getFileMeta(section);
+          const item = list[index];
+          if(item){
+            await deleteFileRecord(item.id);
+            list.splice(index, 1);
+            setFileMeta(section, list);
+            await renderFiles(section);
+            showStatus("Arquivo removido");
+          }
+        });
+
         container.appendChild(row);
       });
     }
 
     async function loadMedia(section){
       await renderImages(section);
-      renderFiles(section);
+      await renderFiles(section);
     }
 
     function setupImageInputs(){
@@ -1109,7 +1140,7 @@
           for(const file of files){
             if(!file.type.startsWith("image/")) continue;
 
-            const id = `${section}_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+            const id = `${section}_img_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
 
             try{
               await saveImageRecord({
@@ -1125,7 +1156,7 @@
                 name: file.name,
                 type: file.type
               });
-            } catch (error){
+            }catch(error){
               console.error(error);
               showStatus("Erro ao salvar foto");
             }
@@ -1142,65 +1173,42 @@
     function setupFileInputs(){
       document.querySelectorAll("input[data-file-input]").forEach(input => {
         const section = input.dataset.fileInput;
-        input.addEventListener("change", (e) => {
+
+        input.addEventListener("change", async (e) => {
           const files = Array.from(e.target.files || []);
           if(!files.length) return;
 
-          const current = getFiles(section);
+          const currentMeta = getFileMeta(section);
 
           for(const file of files){
-            current.push({
-              name: file.name,
-              type: file.type || "arquivo",
-              size: file.size || 0
-            });
+            const id = `${section}_file_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+
+            try{
+              await saveFileRecord({
+                id,
+                section,
+                name: file.name,
+                type: file.type || "application/octet-stream",
+                blob: file
+              });
+
+              currentMeta.push({
+                id,
+                name: file.name,
+                type: file.type || "application/octet-stream"
+              });
+            }catch(error){
+              console.error(error);
+              showStatus("Erro ao salvar arquivo");
+            }
           }
 
-          setFiles(section, current);
-          renderFiles(section);
+          setFileMeta(section, currentMeta);
+          await renderFiles(section);
           input.value = "";
-          showStatus("Arquivo registrado");
+          showStatus("Arquivo salvo");
         });
       });
-    }
-
-    async function exportBackup(){
-      const backup = {
-        localStorageData: {},
-        images: []
-      };
-
-      for(let i = 0; i < localStorage.length; i++){
-        const key = localStorage.key(i);
-        if(key && key.startsWith(STORAGE_PREFIX)){
-          backup.localStorageData[key] = localStorage.getItem(key);
-        }
-      }
-
-      const imageRecords = await getAllImageRecords();
-
-      for(const rec of imageRecords){
-        const base64 = await blobToBase64(rec.blob);
-        backup.images.push({
-          id: rec.id,
-          section: rec.section,
-          name: rec.name,
-          type: rec.type,
-          data: base64
-        });
-      }
-
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type:"application/json" });
-      const a = document.createElement("a");
-      const now = new Date();
-      const filename = `backup_sistema_esqueletico_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}.json`;
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      showStatus("Backup exportado");
     }
 
     function blobToBase64(blob){
@@ -1223,6 +1231,57 @@
       }
 
       return new Blob([ab], { type });
+    }
+
+    async function exportBackup(){
+      const backup = {
+        localStorageData: {},
+        images: [],
+        files: []
+      };
+
+      for(let i = 0; i < localStorage.length; i++){
+        const key = localStorage.key(i);
+        if(key && key.startsWith(STORAGE_PREFIX)){
+          backup.localStorageData[key] = localStorage.getItem(key);
+        }
+      }
+
+      const imageRecords = await getAllRecords(IMAGE_STORE);
+      for(const rec of imageRecords){
+        const base64 = await blobToBase64(rec.blob);
+        backup.images.push({
+          id: rec.id,
+          section: rec.section,
+          name: rec.name,
+          type: rec.type,
+          data: base64
+        });
+      }
+
+      const fileRecords = await getAllRecords(FILE_STORE);
+      for(const rec of fileRecords){
+        const base64 = await blobToBase64(rec.blob);
+        backup.files.push({
+          id: rec.id,
+          section: rec.section,
+          name: rec.name,
+          type: rec.type,
+          data: base64
+        });
+      }
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type:"application/json" });
+      const a = document.createElement("a");
+      const now = new Date();
+      const filename = `backup_sistema_esqueletico_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}.json`;
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      showStatus("Backup exportado");
     }
 
     async function importBackupFile(file){
@@ -1248,6 +1307,18 @@
                 name: img.name,
                 type: img.type,
                 blob: base64ToBlob(img.data, img.type)
+              });
+            }
+          }
+
+          if(Array.isArray(data.files)){
+            for(const fileItem of data.files){
+              await saveFileRecord({
+                id: fileItem.id,
+                section: fileItem.section,
+                name: fileItem.name,
+                type: fileItem.type,
+                blob: base64ToBlob(fileItem.data, fileItem.type)
               });
             }
           }
@@ -1283,19 +1354,23 @@
     async function clearAllMedia(){
       if(!confirm("Deseja apagar todas as fotos e todos os arquivos registrados?")) return;
 
-      const allImages = await getAllImageRecords();
-      for(const item of allImages){
+      const images = await getAllRecords(IMAGE_STORE);
+      for(const item of images){
         await deleteImageRecord(item.id);
+      }
+
+      const files = await getAllRecords(FILE_STORE);
+      for(const item of files){
+        await deleteFileRecord(item.id);
       }
 
       ["estrutura","acidentes","aberturas","axial","apendicular","final"].forEach(section => {
         localStorage.removeItem(STORAGE_PREFIX + "image_meta_" + section);
-        localStorage.removeItem(STORAGE_PREFIX + "files_" + section);
-        renderFiles(section);
+        localStorage.removeItem(STORAGE_PREFIX + "file_meta_" + section);
       });
 
       for(const section of ["estrutura","acidentes","aberturas","axial","apendicular","final"]){
-        await renderImages(section);
+        await loadMedia(section);
       }
 
       showStatus("Fotos e arquivos removidos");
@@ -1330,11 +1405,11 @@
         }
       }catch(error){
         console.error(error);
-        alert("Erro ao iniciar o armazenamento das imagens.");
+        alert("Erro ao iniciar o armazenamento.");
       }
     }
 
     initApp();
   </script>
 </body>
-            </html>
+  </html>
