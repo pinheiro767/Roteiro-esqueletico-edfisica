@@ -4,7 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Roteiro do Sistema Esquelético - UEM</title>
+
   <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Sistema Esquelético" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
   <style>
     :root{
       --bg1:#0f172a;
@@ -31,7 +38,7 @@
 
     body{
       margin:0;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family:Arial, Helvetica, sans-serif;
       color:var(--ink);
       background:
         radial-gradient(circle at top left, rgba(124,58,237,.18), transparent 30%),
@@ -44,7 +51,7 @@
       position:sticky;
       top:0;
       z-index:1000;
-      backdrop-filter: blur(14px);
+      backdrop-filter:blur(14px);
       background:rgba(15,23,42,.86);
       color:#fff;
       border-bottom:1px solid rgba(255,255,255,.08);
@@ -169,7 +176,7 @@
       margin-top:22px;
     }
 
-    @media (min-width: 980px){
+    @media (min-width:980px){
       .grid{
         grid-template-columns:300px 1fr;
         align-items:start;
@@ -301,7 +308,7 @@
       gap:16px;
     }
 
-    @media (min-width: 820px){
+    @media (min-width:820px){
       .two-col{
         grid-template-columns:1fr 1fr;
       }
@@ -346,7 +353,7 @@
       gap:12px;
     }
 
-    @media (min-width: 700px){
+    @media (min-width:700px){
       .upload-panel{
         grid-template-columns:1fr 1fr;
       }
@@ -791,8 +798,8 @@
 
           <h4>Antebraço</h4>
           <ul class="item-list">
-            <li>Rádio – cabeça do rádio, tuberosidade do rádio, processo estilóide do rádio</li>
-            <li>Ulna – olécrano, processo estilóide da ulna, tuberosidade da ulna</li>
+            <li>Rádio – cabeça do rádio, tuberosidade do rádio, processo estiloide do rádio</li>
+            <li>Ulna – olécrano, processo estiloide da ulna, tuberosidade da ulna</li>
           </ul>
 
           <h4>Mão</h4>
@@ -1031,6 +1038,13 @@
           const current = getImages(section);
 
           for(const file of files){
+            if(!file.type.startsWith("image/")) continue;
+
+            if(file.size > 4 * 1024 * 1024){
+              showStatus("Imagem grande demais");
+              continue;
+            }
+
             const reader = new FileReader();
             await new Promise(resolve => {
               reader.onload = () => {
@@ -1065,7 +1079,8 @@
           for(const file of files){
             current.push({
               name: file.name,
-              type: file.type || "arquivo"
+              type: file.type || "arquivo",
+              size: file.size || 0
             });
           }
 
@@ -1093,8 +1108,10 @@
       const filename = `backup_sistema_esqueletico_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}.json`;
       a.href = URL.createObjectURL(blob);
       a.download = filename;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href);
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       showStatus("Backup exportado");
     }
 
@@ -1153,6 +1170,17 @@
     setupImageInputs();
     setupFileInputs();
     ["estrutura","acidentes","aberturas","axial","apendicular","final"].forEach(loadMedia);
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", async () => {
+        try {
+          const reg = await navigator.serviceWorker.register("./sw.js");
+          console.log("Service Worker registrado com sucesso:", reg.scope);
+        } catch (error) {
+          console.log("Erro ao registrar o Service Worker:", error);
+        }
+      });
+    }
   </script>
 </body>
-  </html>
+</html>
