@@ -32,9 +32,7 @@
 
     *{box-sizing:border-box}
 
-    html{
-      scroll-behavior:smooth;
-    }
+    html{scroll-behavior:smooth}
 
     body{
       margin:0;
@@ -78,9 +76,7 @@
       font-size:14px;
     }
 
-    .btn:hover{
-      transform:translateY(-1px);
-    }
+    .btn:hover{transform:translateY(-1px)}
 
     .btn-primary{
       background:linear-gradient(135deg,var(--accent),var(--accent2));
@@ -228,9 +224,7 @@
       gap:18px;
     }
 
-    .section{
-      padding:18px;
-    }
+    .section{padding:18px}
 
     .section h2{
       margin:0 0 8px;
@@ -298,9 +292,7 @@
       line-height:1.8;
     }
 
-    .item-list li{
-      margin-bottom:4px;
-    }
+    .item-list li{margin-bottom:4px}
 
     .two-col{
       display:grid;
@@ -444,9 +436,7 @@
       word-break:break-word;
     }
 
-    .footer-space{
-      height:30px;
-    }
+    .footer-space{height:30px}
 
     .fab{
       position:fixed;
@@ -463,9 +453,7 @@
       cursor:pointer;
     }
 
-    .fab:hover{
-      transform:translateY(-1px);
-    }
+    .fab:hover{transform:translateY(-1px)}
 
     .status{
       position:fixed;
@@ -484,22 +472,16 @@
       z-index:1200;
     }
 
-    .status.show{
-      opacity:1;
-    }
+    .status.show{opacity:1}
 
-    .print-only{
-      display:none;
-    }
+    .print-only{display:none}
 
     @media print{
       .topbar, .sidebar, .fab, .status, .upload-panel, .btn{
         display:none !important;
       }
 
-      body{
-        background:#fff;
-      }
+      body{background:#fff}
 
       .wrap{
         max-width:100%;
@@ -521,9 +503,7 @@
         border:1px solid #bbb;
       }
 
-      .print-only{
-        display:block;
-      }
+      .print-only{display:block}
     }
   </style>
 </head>
@@ -798,8 +778,8 @@
 
           <h4>Antebraço</h4>
           <ul class="item-list">
-            <li>Rádio – cabeça do rádio, tuberosidade do rádio, processo estiloide do rádio</li>
-            <li>Ulna – olécrano, processo estiloide da ulna, tuberosidade da ulna</li>
+            <li>Rádio – cabeça do rádio, tuberosidade do rádio, processo estilóide do rádio</li>
+            <li>Ulna – olécrano, processo estilóide da ulna, tuberosidade da ulna</li>
           </ul>
 
           <h4>Mão</h4>
@@ -916,6 +896,11 @@
 
   <script>
     const STORAGE_PREFIX = "uem_esqueleto_";
+    const DB_NAME = "uem_esqueleto_db";
+    const DB_VERSION = 1;
+    const IMAGE_STORE = "images";
+
+    let db;
 
     function showStatus(message){
       const el = document.getElementById("status");
@@ -929,6 +914,28 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
+    function openDB(){
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = function(event){
+          const database = event.target.result;
+          if(!database.objectStoreNames.contains(IMAGE_STORE)){
+            database.createObjectStore(IMAGE_STORE, { keyPath: "id" });
+          }
+        };
+
+        request.onsuccess = function(){
+          db = request.result;
+          resolve(db);
+        };
+
+        request.onerror = function(){
+          reject(request.error);
+        };
+      });
+    }
+
     function saveTextareas(){
       document.querySelectorAll("textarea[data-save]").forEach(area => {
         const key = STORAGE_PREFIX + area.dataset.save;
@@ -938,23 +945,6 @@
           showStatus("Anotação salva");
         });
       });
-    }
-
-    function loadMedia(section){
-      renderImages(section);
-      renderFiles(section);
-    }
-
-    function getImages(section){
-      try{
-        return JSON.parse(localStorage.getItem(STORAGE_PREFIX + "images_" + section) || "[]");
-      }catch{
-        return [];
-      }
-    }
-
-    function setImages(section, arr){
-      localStorage.setItem(STORAGE_PREFIX + "images_" + section, JSON.stringify(arr));
     }
 
     function getFiles(section){
@@ -969,34 +959,107 @@
       localStorage.setItem(STORAGE_PREFIX + "files_" + section, JSON.stringify(arr));
     }
 
-    function renderImages(section){
+    function getImageMeta(section){
+      try{
+        return JSON.parse(localStorage.getItem(STORAGE_PREFIX + "image_meta_" + section) || "[]");
+      }catch{
+        return [];
+      }
+    }
+
+    function setImageMeta(section, arr){
+      localStorage.setItem(STORAGE_PREFIX + "image_meta_" + section, JSON.stringify(arr));
+    }
+
+    function saveImageRecord(record){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IMAGE_STORE, "readwrite");
+        const store = tx.objectStore(IMAGE_STORE);
+        const req = store.put(record);
+
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getImageRecord(id){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IMAGE_STORE, "readonly");
+        const store = tx.objectStore(IMAGE_STORE);
+        const req = store.get(id);
+
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function deleteImageRecord(id){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IMAGE_STORE, "readwrite");
+        const store = tx.objectStore(IMAGE_STORE);
+        const req = store.delete(id);
+
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function getAllImageRecords(){
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IMAGE_STORE, "readonly");
+        const store = tx.objectStore(IMAGE_STORE);
+        const req = store.getAll();
+
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function renderImages(section){
       const container = document.getElementById("preview-" + section);
       if(!container) return;
-      const images = getImages(section);
+
+      const metaList = getImageMeta(section);
       container.innerHTML = "";
 
-      if(images.length === 0){
+      if(metaList.length === 0){
         container.innerHTML = '<div class="subtle">Nenhuma foto anexada.</div>';
         return;
       }
 
-      images.forEach((img, index) => {
+      for(let index = 0; index < metaList.length; index++){
+        const meta = metaList[index];
+        const record = await getImageRecord(meta.id);
+        if(!record || !record.blob) continue;
+
+        const imageURL = URL.createObjectURL(record.blob);
+
         const div = document.createElement("div");
         div.className = "preview-item";
         div.innerHTML = `
-          <img src="${img.data}" alt="${img.name}">
-          <small>${img.name}</small>
+          <img alt="${meta.name}">
+          <small>${meta.name}</small>
           <button class="mini-btn" type="button">Remover</button>
         `;
-        div.querySelector("button").addEventListener("click", () => {
-          const list = getImages(section);
-          list.splice(index, 1);
-          setImages(section, list);
-          renderImages(section);
-          showStatus("Foto removida");
+
+        const img = div.querySelector("img");
+        img.src = imageURL;
+        img.onload = () => URL.revokeObjectURL(imageURL);
+
+        div.querySelector("button").addEventListener("click", async () => {
+          const list = getImageMeta(section);
+          const item = list[index];
+          if(item){
+            await deleteImageRecord(item.id);
+            list.splice(index, 1);
+            setImageMeta(section, list);
+            await renderImages(section);
+            showStatus("Foto removida");
+          }
         });
+
         container.appendChild(div);
-      });
+      }
     }
 
     function renderFiles(section){
@@ -1028,39 +1091,48 @@
       });
     }
 
+    async function loadMedia(section){
+      await renderImages(section);
+      renderFiles(section);
+    }
+
     function setupImageInputs(){
       document.querySelectorAll("input[data-image-input]").forEach(input => {
         const section = input.dataset.imageInput;
+
         input.addEventListener("change", async (e) => {
           const files = Array.from(e.target.files || []);
           if(!files.length) return;
 
-          const current = getImages(section);
+          const currentMeta = getImageMeta(section);
 
           for(const file of files){
             if(!file.type.startsWith("image/")) continue;
 
-            if(file.size > 4 * 1024 * 1024){
-              showStatus("Imagem grande demais");
-              continue;
-            }
+            const id = `${section}_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
 
-            const reader = new FileReader();
-            await new Promise(resolve => {
-              reader.onload = () => {
-                current.push({
-                  name: file.name,
-                  type: file.type,
-                  data: reader.result
-                });
-                resolve();
-              };
-              reader.readAsDataURL(file);
-            });
+            try{
+              await saveImageRecord({
+                id,
+                section,
+                name: file.name,
+                type: file.type,
+                blob: file
+              });
+
+              currentMeta.push({
+                id,
+                name: file.name,
+                type: file.type
+              });
+            } catch (error){
+              console.error(error);
+              showStatus("Erro ao salvar foto");
+            }
           }
 
-          setImages(section, current);
-          renderImages(section);
+          setImageMeta(section, currentMeta);
+          await renderImages(section);
           input.value = "";
           showStatus("Foto salva");
         });
@@ -1070,7 +1142,7 @@
     function setupFileInputs(){
       document.querySelectorAll("input[data-file-input]").forEach(input => {
         const section = input.dataset.fileInput;
-        input.addEventListener("change", async (e) => {
+        input.addEventListener("change", (e) => {
           const files = Array.from(e.target.files || []);
           if(!files.length) return;
 
@@ -1092,14 +1164,30 @@
       });
     }
 
-    function exportBackup(){
-      const backup = {};
+    async function exportBackup(){
+      const backup = {
+        localStorageData: {},
+        images: []
+      };
 
       for(let i = 0; i < localStorage.length; i++){
         const key = localStorage.key(i);
         if(key && key.startsWith(STORAGE_PREFIX)){
-          backup[key] = localStorage.getItem(key);
+          backup.localStorageData[key] = localStorage.getItem(key);
         }
+      }
+
+      const imageRecords = await getAllImageRecords();
+
+      for(const rec of imageRecords){
+        const base64 = await blobToBase64(rec.blob);
+        backup.images.push({
+          id: rec.id,
+          section: rec.section,
+          name: rec.name,
+          type: rec.type,
+          data: base64
+        });
       }
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type:"application/json" });
@@ -1115,28 +1203,71 @@
       showStatus("Backup exportado");
     }
 
-    function importBackupFile(file){
+    function blobToBase64(blob){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function base64ToBlob(base64, type){
+      const parts = base64.split(",");
+      const byteString = atob(parts[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+
+      for(let i = 0; i < byteString.length; i++){
+        ia[i] = byteString.charCodeAt(i);
+      }
+
+      return new Blob([ab], { type });
+    }
+
+    async function importBackupFile(file){
       const reader = new FileReader();
-      reader.onload = () => {
+
+      reader.onload = async () => {
         try{
           const data = JSON.parse(reader.result);
-          Object.keys(data).forEach(key => {
-            if(key.startsWith(STORAGE_PREFIX)){
-              localStorage.setItem(key, data[key]);
+
+          if(data.localStorageData){
+            Object.keys(data.localStorageData).forEach(key => {
+              if(key.startsWith(STORAGE_PREFIX)){
+                localStorage.setItem(key, data.localStorageData[key]);
+              }
+            });
+          }
+
+          if(Array.isArray(data.images)){
+            for(const img of data.images){
+              await saveImageRecord({
+                id: img.id,
+                section: img.section,
+                name: img.name,
+                type: img.type,
+                blob: base64ToBlob(img.data, img.type)
+              });
             }
-          });
+          }
 
           document.querySelectorAll("textarea[data-save]").forEach(area => {
             const key = STORAGE_PREFIX + area.dataset.save;
             area.value = localStorage.getItem(key) || "";
           });
 
-          ["estrutura","acidentes","aberturas","axial","apendicular","final"].forEach(loadMedia);
+          for(const section of ["estrutura","acidentes","aberturas","axial","apendicular","final"]){
+            await loadMedia(section);
+          }
+
           showStatus("Backup importado");
         }catch(err){
+          console.error(err);
           alert("Arquivo de backup inválido.");
         }
       };
+
       reader.readAsText(file);
     }
 
@@ -1149,14 +1280,24 @@
       showStatus("Anotações removidas");
     }
 
-    function clearAllMedia(){
+    async function clearAllMedia(){
       if(!confirm("Deseja apagar todas as fotos e todos os arquivos registrados?")) return;
+
+      const allImages = await getAllImageRecords();
+      for(const item of allImages){
+        await deleteImageRecord(item.id);
+      }
+
       ["estrutura","acidentes","aberturas","axial","apendicular","final"].forEach(section => {
-        localStorage.removeItem(STORAGE_PREFIX + "images_" + section);
+        localStorage.removeItem(STORAGE_PREFIX + "image_meta_" + section);
         localStorage.removeItem(STORAGE_PREFIX + "files_" + section);
-        renderImages(section);
         renderFiles(section);
       });
+
+      for(const section of ["estrutura","acidentes","aberturas","axial","apendicular","final"]){
+        await renderImages(section);
+      }
+
       showStatus("Fotos e arquivos removidos");
     }
 
@@ -1166,21 +1307,34 @@
       e.target.value = "";
     });
 
-    saveTextareas();
-    setupImageInputs();
-    setupFileInputs();
-    ["estrutura","acidentes","aberturas","axial","apendicular","final"].forEach(loadMedia);
+    async function initApp(){
+      try{
+        await openDB();
+        saveTextareas();
+        setupImageInputs();
+        setupFileInputs();
 
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", async () => {
-        try {
-          const reg = await navigator.serviceWorker.register("./sw.js");
-          console.log("Service Worker registrado com sucesso:", reg.scope);
-        } catch (error) {
-          console.log("Erro ao registrar o Service Worker:", error);
+        for(const section of ["estrutura","acidentes","aberturas","axial","apendicular","final"]){
+          await loadMedia(section);
         }
-      });
+
+        if ("serviceWorker" in navigator) {
+          window.addEventListener("load", async () => {
+            try {
+              const reg = await navigator.serviceWorker.register("./sw.js");
+              console.log("Service Worker registrado com sucesso:", reg.scope);
+            } catch (error) {
+              console.log("Erro ao registrar o Service Worker:", error);
+            }
+          });
+        }
+      }catch(error){
+        console.error(error);
+        alert("Erro ao iniciar o armazenamento das imagens.");
+      }
     }
+
+    initApp();
   </script>
 </body>
-</html>
+  </html>
